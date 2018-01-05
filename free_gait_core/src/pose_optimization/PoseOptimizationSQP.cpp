@@ -83,7 +83,7 @@ bool PoseOptimizationSQP::optimize(Pose& pose)
   PoseOptimizationProblem problem(objective_, constraints_);
   std::shared_ptr<numopt_common::QuadraticProblemSolver> qpSolver(
       new numopt_quadprog::ActiveSetFunctionMinimizer);
-  numopt_sqp::SQPFunctionMinimizer solver(qpSolver, 30, 0.01, 3, -DBL_MAX);
+  numopt_sqp::SQPFunctionMinimizer solver(qpSolver, 30, 0.01, -DBL_MAX, false, false);
   solver.registerOptimizationStepCallback(
       std::bind(&PoseOptimizationSQP::optimizationStepCallback, this, std::placeholders::_1, std::placeholders::_2,
                 std::placeholders::_3, std::placeholders::_4));
