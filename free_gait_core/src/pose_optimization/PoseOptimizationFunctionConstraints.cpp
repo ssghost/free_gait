@@ -160,7 +160,7 @@ bool PoseOptimizationFunctionConstraints::getLocalInequalityConstraintJacobian(
   const auto& poseParameterization = dynamic_cast<const PoseParameterization&>(params);
   const Pose pose = poseParameterization.getPose();
   const Eigen::Vector3d& p = pose.getPosition().vector();
-  const RotationQuaternion Phi(pose.getRotation());
+  const RotationQuaternion& Phi(pose.getRotation());
   const Eigen::Vector3d Phi_r_com = Phi.rotate(centerOfMassInBaseFrame_).vector();
   const Eigen::Matrix3d Phi_r_com_skew = kindr::getSkewMatrixFromVector(Phi_r_com);
 
@@ -175,13 +175,20 @@ bool PoseOptimizationFunctionConstraints::getLocalInequalityConstraintJacobian(
   size_t i(0);
   for (const auto& positionBaseToHipInBaseFrame : positionsBaseToHipInBaseFrame_) {
     const auto limb = positionBaseToHipInBaseFrame.first;
-    const Position& footPosition = stance_.at(limb);
-    const Eigen::Vector3d Phi_r_BH = Phi.rotate(positionBaseToHipInBaseFrame.second).vector();
-    const Eigen::Matrix3d Phi_r_BH_skew = kindr::getSkewMatrixFromVector(Phi_r_BH);
-    const Eigen::Vector3d l_normalized = (p + Phi_r_BH - stance_.at(limb).vector()).normalized();
-    analyticalJacobian.row(nSupportRegionInequalityConstraints_ + i).head<3>() = l_normalized;
-    analyticalJacobian.row(nSupportRegionInequalityConstraints_ + i).tail<3>() = -l_normalized.transpose() * Phi_r_BH_skew;
-    ++i;
+    try {
+      const Position& footPosition = stance_.at(limb);
+      const Eigen::Vector3d Phi_r_BH = Phi.rotate(positionBaseToHipInBaseFrame.second).vector();
+      const Eigen::Matrix3d Phi_r_BH_skew = kindr::getSkewMatrixFromVector(Phi_r_BH);
+      const Eigen::Vector3d l_normalized = (p + Phi_r_BH - stance_.at(limb).vector()).normalized();
+      analyticalJacobian.row(nSupportRegionInequalityConstraints_ + i).head<3>() = l_normalized;
+      analyticalJacobian.row(nSupportRegionInequalityConstraints_ + i).tail<3>() = -l_normalized.transpose() * Phi_r_BH_skew;
+      ++i;
+    } catch (...) {
+      const auto limbName = quadruped_model::RD::mapKeyEnumToKeyName(limb);
+      std::cout << "[PoseOptimizationFunctionConstraints::getLocalInequalityConstraintJacobian] "
+                << "Caught an out of range exception. Tried to access limb named '" << limbName << "' from stance container."
+                << " Stance container size: " << stance_.size() << std::endl;
+    }
   }
 
 //  std::cout << "Analytical:\n" << analyticalJacobian << std::endl;
@@ -189,8 +196,6 @@ bool PoseOptimizationFunctionConstraints::getLocalInequalityConstraintJacobian(
   // Return solution.
 //  jacobian = numericalJacobian;
   jacobian = analyticalJacobian.sparseView(1e-10);
-  return true;
-
   return true;
 }
 
